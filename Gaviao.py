@@ -225,4 +225,4 @@ else:
 
 # Rodapé
 st.markdown("---")
-st.write("Desenvolvido para análise de padrões no Football Studio. Jogue com responsabilidade.")
+st.write("Análise de padrões Fantasma Football Studio. Jogue com responsabilidade HS Studio.")
