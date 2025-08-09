@@ -153,7 +153,6 @@ def sugerir_aposta(padrao, historico):
                 return f"Aposte em {EMOJI_MAP[i]}", "Empate detectado. Aposte na repetição do último lado vencedor."
         return "Aguardar", "Empate detectado, mas sem histórico claro para apostar."
     elif padrao == "Sequências Longas de Uma Cor":
-        # Aqui você pode preferir aguardar ao invés de apostar sempre
         return "Aguardar", "Sequência longa detectada. Melhor aguardar a quebra do padrão."
     elif padrao == "Padrão de Dois ou Três Repetidos + Inversão":
         ciclo = historico[-4:-1]
@@ -217,9 +216,16 @@ if st.session_state.historico:
     padrao = detectar_padrao(historico_list)
     info = PADROES_INFO.get(padrao, {"numero": "?", "emoji": "❔", "descricao": "Padrão não identificado."})
     aposta, explicacao = sugerir_aposta(padrao, historico_list)
+
     st.markdown(f"**Padrão Detectado: {info['numero']}. {padrao} {info['emoji']}**")
-    st.success(f"**Sugestão de Aposta:** {aposta}")
-    st.info(f"**Explicação:** {explicacao}")
+
+    # Exibir sugestão com controle para não "forçar" aposta quando não apropriado
+    if aposta.startswith("Aposte em") or aposta.startswith("Aposte com"):
+        st.success(f"**Sugestão de Aposta:** {aposta}")
+        st.info(f"**Explicação:** {explicacao}")
+    else:
+        st.warning(f"**Aviso:** {aposta}")
+        st.info(f"**Explicação:** {explicacao}")
 else:
     st.info("Insira resultados para começar a análise.")
 
