@@ -18,6 +18,11 @@ PADROES_INFO = {
         "emoji": "🔴",
         "descricao": "3 ou mais resultados iguais consecutivos, indicando possível quebra."
     },
+    "Sequência Repetitiva após quebra": {
+        "numero": "1b",
+        "emoji": "🔄",
+        "descricao": "Sequência retomada após quebra de padrão."
+    },
     "Padrão Alternado": {
         "numero": "2",
         "emoji": "🔵",
@@ -70,28 +75,42 @@ def oposto(cor):
     if cor == 'A': return 'V'
     return None
 
-# Função para detectar padrão
 def detectar_padrao(historico):
     if len(historico) < 2:
         return "Sem padrão suficiente"
 
+    # Verificar a sequência atual no final do histórico
     ultimo = historico[-1]
-    penultimo = historico[-2]
-
-    # Sequência repetitiva (3 ou mais)
-    count = 1
-    for i in range(len(historico)-2, -1, -1):
+    count_atual = 1
+    for i in range(len(historico)-2, max(-1, len(historico)-18), -1):
         if historico[i] == ultimo:
-            count += 1
+            count_atual += 1
         else:
             break
-    if count >= 3:
-        return "Sequência Repetitiva"
+
+    # Verificar a sequência anterior que foi quebrada
+    cor_anterior = None
+    count_anterior = 0
+    if len(historico) > count_atual:
+        cor_anterior = historico[-count_atual-1]
+        count_anterior = 1
+        for i in range(len(historico)-count_atual-2, max(-1, len(historico)-count_atual-18), -1):
+            if historico[i] == cor_anterior:
+                count_anterior += 1
+            else:
+                break
+
+    # Sequência Repetitiva (3 ou mais da mesma cor)
+    if count_atual >= 3:
+        # Se houve uma sequência anterior significativa que foi quebrada
+        if count_anterior >= 2 and cor_anterior != ultimo:
+            return f"Sequência Repetitiva após quebra ({count_atual}x {EMOJI_MAP[ultimo]})"
+        return f"Sequência Repetitiva ({count_atual}x {EMOJI_MAP[ultimo]})"
 
     # Padrão alternado (ex: V A V A)
     if len(historico) >= 4:
         alternado = True
-        for i in range(len(historico)-1):
+        for i in range(max(0, len(historico)-18), len(historico)-1):
             if historico[i] == historico[i+1]:
                 alternado = False
                 break
@@ -99,81 +118,109 @@ def detectar_padrao(historico):
             return "Padrão Alternado"
 
     # Quebra de padrão (2 iguais + inversão)
-    if count == 2 and penultimo == ultimo and len(historico) >= 3 and historico[-3] != ultimo:
+    if count_atual == 2 and historico[-2] == ultimo and len(historico) >= 3 and historico[-3] != ultimo:
         return "Quebra de Padrão"
 
     # Empates estratégicos
-    if 'E' in historico[-5:]:
+    if 'E' in historico[-18:]:
         return "Empates Estratégicos"
 
     # Sequências longas (>5)
-    if count >= 5:
+    if count_atual >= 5:
         return "Sequências Longas de Uma Cor"
 
     # Padrão de dois ou três repetidos + inversão
     if len(historico) >= 4:
-        last_four = historico[-4:]
-        if last_four[0] == last_four[1] and last_four[2] != last_four[1] and last_four[3] == last_four[2]:
-            return "Padrão de Dois ou Três Repetidos + Inversão"
+        last_group = historico[-18:] if len(historico) >= 18 else historico
+        for i in range(len(last_group)-3):
+            if last_group[i] == last_group[i+1] and last_group[i+2] != last_group[i+1] and last_group[i+3] == last_group[i+2]:
+                return "Padrão de Dois ou Três Repetidos + Inversão"
 
     # Padrões de ciclos curtos
     if len(historico) >= 6:
-        ciclo_1 = historico[-3:]
-        ciclo_2 = historico[-6:-3]
-        if ciclo_1 == ciclo_2:
-            return "Padrões de Ciclos Curtos"
+        last_18 = historico[-18:] if len(historico) >= 18 else historico
+        for i in range(len(last_18)-5):
+            ciclo_1 = last_18[i:i+3]
+            ciclo_2 = last_18[i+3:i+6]
+            if ciclo_1 == ciclo_2:
+                return "Padrões de Ciclos Curtos"
 
-    # Falsos padrões (muita alternância, pouca repetição)
+    # Falsos padrões
     if len(historico) >= 6:
-        repeticoes = sum(1 for i in range(len(historico)-1) if historico[i] == historico[i+1])
+        last_18 = historico[-18:] if len(historico) >= 18 else historico
+        repeticoes = sum(1 for i in range(len(last_18)-1) if last_18[i] == last_18[i+1])
         if repeticoes <= 1:
             return "Falsos Padrões"
 
-    # Manipulação por nível de confiança (empates e inversões)
-    ultimos_6 = historico[-6:]
-    empates = ultimos_6.count('E')
-    inversoes = sum(1 for i in range(len(ultimos_6)-1) if ultimos_6[i] != ultimos_6[i+1] and ultimos_6[i] != 'E' and ultimos_6[i+1] != 'E')
+    # Manipulação por nível de confiança
+    ultimos_18 = historico[-18:] if len(historico) >= 18 else historico
+    empates = ultimos_18.count('E')
+    inversoes = sum(1 for i in range(len(ultimos_18)-1) if ultimos_18[i] != ultimos_18[i+1] and ultimos_18[i] != 'E' and ultimos_18[i+1] != 'E')
     if empates >= 1 and inversoes >= 2:
         return "Manipulação por Nível de Confiança"
 
     return "Ruído Controlado / Quântico"
 
 def sugerir_aposta(padrao, historico):
-    ultimo = historico[-1] if historico else None
-
-    if padrao == "Sequência Repetitiva":
-        return f"Aposte em {EMOJI_MAP[oposto(ultimo)]}", "Aposte no contrário da sequência, esperando a quebra do padrão."
+    if not historico:
+        return "Sem sugestão", "Histórico vazio"
+    
+    ultimo = historico[-1]
+    
+    if "Sequência Repetitiva" in padrao:
+        # Extrai informações da string do padrão
+        parts = padrao.split('(')
+        count = int(parts[1].split('x')[0])
+        cor = ultimo
+        
+        if "após quebra" in padrao:
+            return f"Aposte em {EMOJI_MAP[cor]}", "Sequência retomada após quebra, aposte na continuidade"
+        else:
+            return f"Aposte em {EMOJI_MAP[oposto(cor)]}", f"Aposte no contrário, esperando quebra da sequência de {count}"
+    
     elif padrao == "Padrão Alternado":
-        return f"Aposte em {EMOJI_MAP[ultimo]}", "Aposte na continuação da alternância do padrão atual."
+        return f"Aposte em {EMOJI_MAP[oposto(ultimo)]}", "Padrão alternado detectado, aposte no oposto do último"
+    
     elif padrao == "Quebra de Padrão":
-        return f"Aposte em {EMOJI_MAP[oposto(ultimo)]}", "Após uma quebra, aposte no oposto do último resultado."
+        return f"Aposte em {EMOJI_MAP[ultimo]}", "Quebra de padrão detectada, aposte na continuidade"
+    
     elif padrao == "Empates Estratégicos":
-        for i in reversed(historico[:-1]):
-            if i != 'E':
-                return f"Aposte em {EMOJI_MAP[i]}", "Empate detectado. Aposte na repetição do último lado vencedor."
-        return "Aguardar", "Empate detectado, mas sem histórico claro para apostar."
+        # Encontrar a última cor não-empate
+        for resultado in reversed(historico[:-1]):
+            if resultado != 'E':
+                return f"Aposte em {EMOJI_MAP[resultado]}", "Empate estratégico detectado, aposte na última cor válida"
+        return "Aguardar", "Muitos empates consecutivos, aguardar padrão claro"
+    
     elif padrao == "Sequências Longas de Uma Cor":
-        return "Aguardar", "Sequência longa detectada. Melhor aguardar a quebra do padrão."
+        return "Aguardar", "Sequência muito longa detectada, risco alto"
+    
     elif padrao == "Padrão de Dois ou Três Repetidos + Inversão":
-        ciclo = historico[-4:-1]
-        if ciclo[0] == ciclo[1] and ciclo[2] != ciclo[1]:
-            return f"Aposte em {EMOJI_MAP[ciclo[2]]}", "Aposte na repetição da inversão do ciclo detectado."
-        return "Aguardar", "Ciclo não claro para apostar."
+        if len(historico) >= 4:
+            ciclo = historico[-4:-1]
+            if ciclo[0] == ciclo[1] and ciclo[2] != ciclo[1]:
+                return f"Aposte em {EMOJI_MAP[ciclo[2]]}", "Padrão de inversão detectado, aposte na continuidade"
+        return "Aguardar", "Padrão de inversão não confirmado"
+    
     elif padrao == "Padrões de Ciclos Curtos":
-        ciclo = historico[-4:]
-        return f"Aposte em {EMOJI_MAP[ciclo[0]]}", "Ciclo curto detectado. Aposte na continuidade do ciclo."
+        if len(historico) >= 6:
+            ciclo = historico[-6:-3]
+            return f"Aposte em {EMOJI_MAP[ciclo[0]]}", "Ciclo detectado, aposte na repetição"
+        return "Aguardar", "Ciclo não confirmado"
+    
     elif padrao == "Falsos Padrões":
-        return "Evitar aposta", "Falso padrão detectado. Evite apostar para não ser enganado."
+        return "Evitar aposta", "Padrão inconsistente detectado, evitar apostar"
+    
     elif padrao == "Manipulação por Nível de Confiança":
-        return "Aposte com cautela e valor baixo", "Manipulação sofisticada detectada. Aposte com prudência."
+        return "Aposte com cautela", "Padrão complexo detectado, aposte valores pequenos"
+    
     else:
-        return "Sem sugestão clara", "Padrão não identificado claramente para sugerir aposta."
+        return "Sem sugestão clara", "Padrão não identificado"
 
 # Inicialização do estado da sessão
 if 'historico' not in st.session_state:
-    st.session_state.historico = collections.deque(maxlen=90)  # Pode ajustar o tamanho conforme necessidade
+    st.session_state.historico = collections.deque(maxlen=100)
 
-# --- Layout ---
+# --- Interface ---
 st.title("🔮 Analisador Avançado de Padrões Football Studio")
 st.markdown("---")
 
@@ -203,10 +250,13 @@ with col5:
 st.markdown("---")
 
 st.markdown("### 2. Histórico de Resultados")
-hist_emojis = [EMOJI_MAP[r] for r in reversed(st.session_state.historico)]
-linhas = [hist_emojis[i:i+9] for i in range(0, len(hist_emojis), 9)]
-for linha in linhas[:10]:
-    st.markdown(" ".join(linha))
+if st.session_state.historico:
+    hist_emojis = [EMOJI_MAP[r] for r in reversed(st.session_state.historico)]
+    linhas = [hist_emojis[i:i+9] for i in range(0, len(hist_emojis), 9)]
+    for linha in linhas[:12]:  # Mostra até 12 linhas
+        st.markdown(" ".join(linha))
+else:
+    st.info("Nenhum resultado registrado ainda")
 
 st.markdown("---")
 
@@ -214,21 +264,27 @@ st.markdown("---")
 if st.session_state.historico:
     historico_list = list(st.session_state.historico)
     padrao = detectar_padrao(historico_list)
-    info = PADROES_INFO.get(padrao, {"numero": "?", "emoji": "❔", "descricao": "Padrão não identificado."})
+    
+    # Obter informações do padrão
+    padrao_base = padrao.split('(')[0].strip() if '(' in padrao else padrao
+    info = PADROES_INFO.get(padrao_base, {
+        "numero": "?",
+        "emoji": "❔",
+        "descricao": "Padrão não identificado."
+    })
+    
     aposta, explicacao = sugerir_aposta(padrao, historico_list)
-
+    
     st.markdown(f"**Padrão Detectado: {info['numero']}. {padrao} {info['emoji']}**")
-
-    # Exibir sugestão com controle para não "forçar" aposta quando não apropriado
-    if aposta.startswith("Aposte em") or aposta.startswith("Aposte com"):
+    st.write(info["descricao"])
+    
+    if aposta.startswith("Aposte"):
         st.success(f"**Sugestão de Aposta:** {aposta}")
-        st.info(f"**Explicação:** {explicacao}")
     else:
-        st.warning(f"**Aviso:** {aposta}")
-        st.info(f"**Explicação:** {explicacao}")
+        st.warning(f"**Recomendação:** {aposta}")
+    st.info(f"**Explicação:** {explicacao}")
 else:
-    st.info("Insira resultados para começar a análise.")
+    st.info("Insira resultados para começar a análise")
 
-# Rodapé
 st.markdown("---")
-st.write("Análise de padrões Fantasma Football Studio. Jogue com responsabilidade HS Studio.")
+st.write("Analisador de padrões Football Studio - Use com responsabilidade")
