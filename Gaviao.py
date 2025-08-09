@@ -138,7 +138,6 @@ def detectar_padrao(historico):
 
     return "Ruído Controlado / Quântico"
 
-# Função para sugerir aposta
 def sugerir_aposta(padrao, historico):
     ultimo = historico[-1] if historico else None
 
@@ -154,7 +153,8 @@ def sugerir_aposta(padrao, historico):
                 return f"Aposte em {EMOJI_MAP[i]}", "Empate detectado. Aposte na repetição do último lado vencedor."
         return "Aguardar", "Empate detectado, mas sem histórico claro para apostar."
     elif padrao == "Sequências Longas de Uma Cor":
-        return f"Aposte em {EMOJI_MAP[ultimo]}", "Sequência longa detectada. Aposte na continuação ou aguarde a quebra."
+        # Aqui você pode preferir aguardar ao invés de apostar sempre
+        return "Aguardar", "Sequência longa detectada. Melhor aguardar a quebra do padrão."
     elif padrao == "Padrão de Dois ou Três Repetidos + Inversão":
         ciclo = historico[-4:-1]
         if ciclo[0] == ciclo[1] and ciclo[2] != ciclo[1]:
