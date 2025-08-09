@@ -11,7 +11,7 @@ st.set_page_config(
 # --- Mapas ---
 EMOJI_MAP = {'V': '🔴', 'A': '🔵', 'E': '🟡'}
 
-# Padrões informativos
+# Mapeamento dos padrões com emojis explicativos
 PADROES_INFO = {
     "Sequência Repetitiva": {
         "numero": "1",
@@ -276,4 +276,109 @@ def sugerir_aposta(padrao_chave, meta):
         return "Aguardar", "Ciclo curto detectado mas predição não confiável."
 
     if padrao_chave == "Falsos Padrões":
-        return "Evitar aposta", f"Alto ruído dentro da janela — evitar apostas (Confi
+        return "Evitar aposta", f"Alto ruído dentro da janela — evitar apostas (Confiança ≈ {conf}%)."
+
+    if padrao_chave == "Manipulação por Nível de Confiança":
+        return "Aposte com cautela", f"Padrão complexo (empates+inversões) na janela — apostar valores baixos e com gestão (Confiança ≈ {conf}%)."
+
+    if padrao_chave == "Ruído Controlado / Quântico":
+        return "Sem sugestão clara", "Janela muito ruidosa/aleatória — aguardar mais dados."
+
+    if padrao_chave == "Sem padrão suficiente":
+        return "Sem sugestão", "Histórico insuficiente para análise (janela vazia)."
+
+    # fallback
+    return "Sem sugestão clara", "Padrão não identificável com confiança suficiente."
+
+# ----------------- UI -----------------
+if 'historico' not in st.session_state:
+    st.session_state.historico = collections.deque(maxlen=200)  # manter histórico maior, mas analisar só a janela de 18
+
+st.title("🔮 Analisador — Análise com Janela de 18 Resultados (garantido)")
+st.markdown("---")
+
+st.markdown("### 1. Inserir Resultados")
+st.write("Insira manualmente o resultado da rodada ou use os botões:")
+
+col1, col2, col3, col4, col5 = st.columns(5)
+with col1:
+    if st.button("🔴 Vitória da Casa", use_container_width=True):
+        st.session_state.historico.append('V')
+with col2:
+    if st.button("🔵 Vitória do Visitante", use_container_width=True):
+        st.session_state.historico.append('A')
+with col3:
+    if st.button("🟡 Empate", use_container_width=True):
+        st.session_state.historico.append('E')
+with col4:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Desfazer", help="Remove o último resultado", use_container_width=True):
+        if st.session_state.historico:
+            st.session_state.historico.pop()
+with col5:
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("Limpar Histórico", help="Apaga todo o histórico", use_container_width=True):
+        st.session_state.historico.clear()
+
+st.markdown("---")
+
+st.markdown("### 2. Histórico de Resultados (exibindo os mais recentes primeiro)")
+if st.session_state.historico:
+    historico_list = list(st.session_state.historico)
+    hist_emojis = [EMOJI_MAP[r] for r in reversed(historico_list)]
+    linhas = [hist_emojis[i:i+9] for i in range(0, len(hist_emojis), 9)]
+    for linha in linhas[:10]:
+        st.markdown(" ".join(linha))
+else:
+    st.info("Nenhum resultado registrado ainda")
+
+st.markdown("---")
+
+modo_debug = st.checkbox("Modo Debug — mostrar meta da janela (últimos 18)", value=False)
+
+# Análise e sugestão (baseada exclusivamente na janela de 18)
+if st.session_state.historico:
+    historico_list = list(st.session_state.historico)
+    padrao_chave, meta = detectar_padrao(historico_list)
+    info = PADROES_INFO.get(padrao_chave, {
+        "numero": "?",
+        "emoji": "❔",
+        "descricao": "Padrão não identificado."
+    })
+
+    aposta, explicacao = sugerir_aposta(padrao_chave, meta)
+
+    detalhe = ""
+    if meta.get("count_atual", 0) >= 2 and meta.get("ultimo") and meta.get("ultimo") != 'E':
+        detalhe = f" ({meta['count_atual']}x {EMOJI_MAP[meta['ultimo']]})"
+    display_padrao = f"{padrao_chave}{detalhe}"
+
+    st.markdown(f"**Padrão Detectado: {info['numero']}. {display_padrao} {info['emoji']}**")
+    st.write(info["descricao"])
+
+    conf = meta.get("confianca", 0)
+    st.metric("Confiança da Detecção (janela)", f"{conf}%")
+    try:
+        st.progress(conf / 100.0)
+    except Exception:
+        st.progress(conf)
+
+    if isinstance(aposta, str) and aposta.startswith("Aposte"):
+        st.success(f"**Sugestão de Aposta:** {aposta}")
+    elif isinstance(aposta, str) and (aposta.startswith("Evitar") or aposta.startswith("Aguardar") or aposta.startswith("Sem") or aposta.startswith("Aposte com cautela")):
+        st.warning(f"**Recomendação:** {aposta}")
+    else:
+        st.info(f"**Recomendação:** {aposta}")
+
+    st.info(f"**Explicação:** {explicacao}")
+
+    if modo_debug:
+        st.markdown("---")
+        st.write("**DEBUG — metadados calculados sobre a janela (últimos 18)**")
+        st.json(meta)
+        st.write("Padrão chave:", padrao_chave)
+else:
+    st.info("Insira resultados para começar a análise")
+
+st.markdown("---")
+st.write("Analisador de padrões Football Studio - Use com responsabilidade")
